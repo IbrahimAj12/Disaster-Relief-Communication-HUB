@@ -1,6 +1,8 @@
+# Ignorer les données des conteneurs locaux
+data/
+rocketchat_uploads/
+
+# Fichiers Terraform résiduels (au cas où)
 .terraform/
 *.tfstate
 *.tfstate.backup
-data/
-mongodb_data/
-.terraform/

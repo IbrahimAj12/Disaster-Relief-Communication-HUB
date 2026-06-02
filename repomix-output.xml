@@ -1,0 +1,643 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+Ansible/
+  deploy.yml
+  hosts.ini
+data_backup/
+  Ansible/
+    deploy.yml
+    hosts.ini
+  terraform/
+    .terraform.lock.hcl
+    gcp_key
+    gcp_key.pub
+    main.tf
+    outputs.tf
+    provider.tf
+    variables.tf
+  docker_backup.yaml
+  docker-compose.yml
+terraform/
+  .terraform.lock.hcl
+  gcp_key
+  gcp_key.pub
+  main.tf
+  outputs.tf
+  provider.tf
+  variables.tf
+.gitignore
+docker_backup.yaml
+docker-compose.yml
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="Ansible/deploy.yml">
+---
+- name: Déployer le Hub de Secours (ResQ-Net) - Version Démo Stable
+  hosts: webservers
+  become: yes
+
+  tasks:
+    - name: 1. Installer Docker et Docker Compose
+      apt:
+        name:
+          - docker.io
+          - docker-compose-v2
+        state: present
+        update_cache: yes
+
+    - name: 2. Créer le dossier du projet
+      file:
+        path: /home/ubuntu/hub
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+
+    - name: 3. Copier le fichier docker-compose.yml
+      copy:
+        dest: /home/ubuntu/hub/docker-compose.yml
+        owner: ubuntu
+        group: ubuntu
+        content: |
+          version: '3.8'
+
+          services:
+            # ═══════════════════════════════════════════════════════
+            # MongoDB (Mode Trusted - Sans Auth pour éviter KeyFile)
+            # ═══════════════════════════════════════════════════════
+            mongodb:
+              image: mongo:5.0
+              container_name: disaster-mongodb
+              restart: unless-stopped
+              command: mongod --replSet rs0 --bind_ip_all
+              volumes:
+                - ./data/db:/data/db
+                - ./data/configdb:/data/configdb
+              networks:
+                - disaster_network
+
+            # ═══════════════════════════════════════════════════════
+            # Le Mécano (Initialisation Simple)
+            # ═══════════════════════════════════════════════════════
+            mongo-init-replica:
+              image: mongo:5.0
+              command: >
+                bash -c "for i in `seq 1 30`; do
+                  mongo mongodb://mongodb:27017/ --eval 'rs.initiate({ _id: \"rs0\", members: [ { _id: 0, host: \"mongodb:27017\" } ] })' &&
+                  s=$$? && break || s=$$?;
+                  echo 'Waiting for mongo...';
+                  sleep 5;
+                done; (exit $$s)"
+              depends_on:
+                - mongodb
+              networks:
+                - disaster_network
+
+            # ═══════════════════════════════════════════════════════
+            # Rocket.Chat
+            # ═══════════════════════════════════════════════════════
+            rocketchat:
+              image: rocket.chat:6.3
+              container_name: disaster-rocketchat
+              restart: unless-stopped
+              ports:
+                - "3000:3000"
+              environment:
+                # Connexion simple sans user/pass
+                MONGO_URL: mongodb://mongodb:27017/rocketchat
+                MONGO_OPLOG_URL: mongodb://mongodb:27017/local?replicaSet=rs0
+                ROOT_URL: http://localhost:3000
+                PORT: 3000
+                Accounts_UseDNSDomainCheck: "false"
+                OVERWRITE_SETTING_Accounts_RegistrationForm: "Public"
+              volumes:
+                - rocketchat_uploads:/app/uploads
+              networks:
+                - disaster_network
+              depends_on:
+                - mongodb
+
+          networks:
+            disaster_network:
+              driver: bridge
+
+          volumes:
+            rocketchat_uploads:
+              driver: local
+
+    - name: 4. Lancer les conteneurs
+      command: docker compose up -d
+      args:
+        chdir: /home/ubuntu/hub
+</file>
+
+<file path="Ansible/hosts.ini">
+[webservers]
+disaster-hub ansible_host=34.76.249.91 ansible_user=ubuntu ansible_ssh_private_key_file=/home/ibrahimaj/Projet_ResQNet/local/terraform/gcp_key ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+</file>
+
+<file path="data_backup/Ansible/deploy.yml">
+---
+- name: Déployer le Hub de Secours (ResQ-Net) - Version Démo Stable
+  hosts: webservers
+  become: yes
+
+  tasks:
+    - name: 1. Installer Docker et Docker Compose
+      apt:
+        name:
+          - docker.io
+          - docker-compose-v2
+        state: present
+        update_cache: yes
+
+    - name: 2. Créer le dossier du projet
+      file:
+        path: /home/ubuntu/hub
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+
+    - name: 3. Copier le fichier docker-compose.yml
+      copy:
+        dest: /home/ubuntu/hub/docker-compose.yml
+        owner: ubuntu
+        group: ubuntu
+        content: |
+          version: '3.8'
+
+          services:
+            # ═══════════════════════════════════════════════════════
+            # MongoDB (Mode Trusted - Sans Auth pour éviter KeyFile)
+            # ═══════════════════════════════════════════════════════
+            mongodb:
+              image: mongo:5.0
+              container_name: disaster-mongodb
+              restart: unless-stopped
+              command: mongod --replSet rs0 --bind_ip_all
+              volumes:
+                - ./data/db:/data/db
+                - ./data/configdb:/data/configdb
+              networks:
+                - disaster_network
+
+            # ═══════════════════════════════════════════════════════
+            # Le Mécano (Initialisation Simple)
+            # ═══════════════════════════════════════════════════════
+            mongo-init-replica:
+              image: mongo:5.0
+              command: >
+                bash -c "for i in `seq 1 30`; do
+                  mongo mongodb://mongodb:27017/ --eval 'rs.initiate({ _id: \"rs0\", members: [ { _id: 0, host: \"mongodb:27017\" } ] })' &&
+                  s=$$? && break || s=$$?;
+                  echo 'Waiting for mongo...';
+                  sleep 5;
+                done; (exit $$s)"
+              depends_on:
+                - mongodb
+              networks:
+                - disaster_network
+
+            # ═══════════════════════════════════════════════════════
+            # Rocket.Chat
+            # ═══════════════════════════════════════════════════════
+            rocketchat:
+              image: rocket.chat:6.3
+              container_name: disaster-rocketchat
+              restart: unless-stopped
+              ports:
+                - "3000:3000"
+              environment:
+                # Connexion simple sans user/pass
+                MONGO_URL: mongodb://mongodb:27017/rocketchat
+                MONGO_OPLOG_URL: mongodb://mongodb:27017/local?replicaSet=rs0
+                ROOT_URL: http://localhost:3000
+                PORT: 3000
+                Accounts_UseDNSDomainCheck: "false"
+                OVERWRITE_SETTING_Accounts_RegistrationForm: "Public"
+              volumes:
+                - rocketchat_uploads:/app/uploads
+              networks:
+                - disaster_network
+              depends_on:
+                - mongodb
+
+          networks:
+            disaster_network:
+              driver: bridge
+
+          volumes:
+            rocketchat_uploads:
+              driver: local
+
+    - name: 4. Lancer les conteneurs
+      command: docker compose up -d
+      args:
+        chdir: /home/ubuntu/hub
+</file>
+
+<file path="data_backup/Ansible/hosts.ini">
+[webservers]
+disaster-hub ansible_host=34.76.249.91 ansible_user=ubuntu ansible_ssh_private_key_file=/home/ibrahimaj/Projet_ResQNet/local/terraform/gcp_key ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+</file>
+
+<file path="data_backup/terraform/.terraform.lock.hcl">
+# This file is maintained automatically by "terraform init".
+# Manual edits may be lost in future updates.
+
+provider "registry.terraform.io/hashicorp/google" {
+  version     = "5.45.2"
+  constraints = "~> 5.0"
+  hashes = [
+    "h1:k8taQAdfHrv2F/AiGV5BZBZfI+1uaq8g6O8dWzjx42c=",
+    "zh:0d09c8f20b556305192cdbe0efa6d333ceebba963a8ba91f9f1714b5a20c4b7a",
+    "zh:117143fc91be407874568df416b938a6896f94cb873f26bba279cedab646a804",
+    "zh:16ccf77d18dd2c5ef9c0625f9cf546ebdf3213c0a452f432204c69feed55081e",
+    "zh:3e555cf22a570a4bd247964671f421ed7517970cd9765ceb46f335edc2c6f392",
+    "zh:688bd5b05a75124da7ae6e885b2b92bd29f4261808b2b78bd5f51f525c1052ca",
+    "zh:6db3ef37a05010d82900bfffb3261c59a0c247e0692049cb3eb8c2ef16c9d7bf",
+    "zh:70316fde75f6a15d72749f66d994ccbdde5f5ed4311b6d06b99850f698c9bbf9",
+    "zh:84b8e583771a4f2bd514e519d98ed7fd28dce5efe0634e973170e1cfb5556fb4",
+    "zh:9d4b8ef0a9b6677935c604d94495042e68ff5489932cfd1ec41052e094a279d3",
+    "zh:a2089dd9bd825c107b148dd12d6b286f71aa37dfd4ca9c35157f2dcba7bc19d8",
+    "zh:f03d795c0fd9721e59839255ee7ba7414173017dc530b4ce566daf3802a0d6dd",
+    "zh:f569b65999264a9416862bca5cd2a6177d94ccb0424f3a4ef424428912b9cb3c",
+  ]
+}
+</file>
+
+<file path="data_backup/terraform/gcp_key.pub">
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCWGp0Nj8TZqPjxFBv2GsWzcsmoxYMtJXFGKJzWE1zF4u/89KsaxOEpmmrrY6re+o0puf3DPnylcAW1uxfwnUr9RiGwi1BVZpjEB4usej0ttG3xIrwOicAiIYuUvtqWu0igP21nqOvAJZOKYDUySjLevBrCiAvCixhAlVS0ItKti8Es3pRtCX1qLDEY4yGXqAVLery1dLNrb8gkcG4hHKR6wvVGc3EEL/t3/K2kgsvUaGUaaNc/KfDzi4pkfopnGh3sUdbTZAbcMgFqRdgP6ngogUJtfildGu3j6AWnYllrQ1zZX69D3QWrOWLDPsYMqyr6uWQQRVISoVvAKR2PRksfW89rBvDwlTlQJgydXXtdQaWUh/mtKVtgONTXdBX99AMakZrcQByN1r6ycxdFX86boEVz96TiS0/t11ZxzSStAD9UEt8EjVfkQd4fjFqaEl4EaGKrNBXc+dWw6YluwQ5YTWUoT8yP1iOcVxYoPK/TPQJzkg1tqTuqZoRRHxZEyZXnPKwMXeF8xJVfsatQzWnlWvvqa1KOc5oo/m3TUdbt1PNf3xAyctLdCUQoybEG2+cKFQIOdF128gu0jgslxkenvHDCfFy7Zc6ZD1P+KFxG/b7cSRZ+XpnFHpDSpq0EWGtVw447UW8TOyC9D6wQwFe3dDmsalkPM88r6wesb0VWKQ== terraform-gcp
+</file>
+
+<file path="data_backup/terraform/main.tf">
+# 1. LE PARE-FEU (CRITIQUE : Ouvre la porte 3000)
+resource "google_compute_firewall" "allow-rocketchat" {
+  name    = "allow-rocketchat-access"
+  network = "default"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["3000", "22"]
+  }
+  source_ranges = ["0.0.0.0/0"]
+  target_tags   = ["rocketchat"] # Ce tag doit correspondre à celui de la VM ci-dessous
+}
+
+# 2. LA MACHINE VIRTUELLE
+resource "google_compute_instance" "disaster_vm" {
+  name         = var.vm_name
+  machine_type = var.machine_type
+  zone         = var.zone
+  tags         = ["rocketchat", "http-server"] # Le tag qui active le pare-feu
+
+  boot_disk {
+    initialize_params {
+      image = "ubuntu-os-cloud/ubuntu-2204-lts"
+      size  = 30
+    }
+  }
+
+  network_interface {
+    network = "default"
+    access_config {} # IP Publique
+  }
+
+  metadata = {
+    ssh-keys = "${var.ssh_user}:${file(pathexpand(var.ssh_public_key))}"
+  }
+
+  # 3. LE SCRIPT DE DÉMARRAGE (Installe tout tout seul)
+  metadata_startup_script = <<-EOF
+    #!/bin/bash
+    # Installation de Docker
+    apt-get update && apt-get install -y docker.io docker-compose-v2
+    
+    # Création du dossier
+    mkdir -p /home/${var.ssh_user}/hub
+    cd /home/${var.ssh_user}/hub
+
+    # Création du fichier docker-compose.yml (Version MongoDB 5.0 Solide)
+    cat <<EOT > docker-compose.yml
+    version: '3.8'
+    services:
+      mongo:
+        image: mongo:5.0
+        restart: always
+        volumes:
+          - ./data/db:/data/db
+        command: mongod --oplogSize 128 --replSet rs0 --bind_ip_all
+      
+      mongo-init-replica:
+        image: mongo:5.0
+        command: >
+          bash -c "for i in \`seq 1 30\`; do
+            mongosh mongodb://mongo:27017/ --eval 'rs.initiate({ _id: \"rs0\", members: [ { _id: 0, host: \"mongo:27017\" } ] })' &&
+            s=\$\$? && break || s=\$\$?;
+            sleep 5;
+          done; (exit \$\$s)"
+        depends_on:
+          - mongo
+      
+      rocketchat:
+        image: rocket.chat:6.12.0
+        restart: always
+        environment:
+          - PORT=3000
+          - ROOT_URL=http://localhost:3000
+          - MONGO_URL=mongodb://mongo:27017/rocketchat
+          - MONGO_OPLOG_URL=mongodb://mongo:27017/local?replicaSet=rs0
+        ports:
+          - "3000:3000"
+        depends_on:
+          - mongo
+          - mongo-init-replica
+    EOT
+
+    # Lancement
+    docker compose up -d
+  EOF
+}
+</file>
+
+<file path="data_backup/terraform/outputs.tf">
+output "vm_public_ip" {
+  value = google_compute_instance.disaster_vm.network_interface[0].access_config[0].nat_ip
+}
+</file>
+
+<file path="data_backup/terraform/provider.tf">
+terraform {
+  required_providers {
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "google" {
+  project = var.project_id
+  region  = var.region
+  zone    = var.zone
+}
+</file>
+
+<file path="data_backup/terraform/variables.tf">
+variable "project_id" {
+  default = "disaster-relief-hub-484419"  # <--- C'était 484416, j'ai mis 484419 (vérifie ton gcloud list !)
+}
+
+variable "region" {
+  default = "europe-west1"
+}
+
+variable "zone" {
+  default = "europe-west1-b"
+}
+
+variable "vm_name" {
+  default = "disaster-relief-vm"
+}
+
+variable "machine_type" {
+  default = "e2-medium"
+}
+
+variable "ssh_user" {
+  default = "ubuntu" # Utilise "ubuntu" c'est plus standard sur GCP
+}
+
+variable "ssh_public_key" {
+  description = "SSH public key path"
+  default     = "./gcp_key.pub" # <--- Ajouté pour te simplifier la vie
+}
+</file>
+
+<file path="terraform/.terraform.lock.hcl">
+# This file is maintained automatically by "terraform init".
+# Manual edits may be lost in future updates.
+
+provider "registry.terraform.io/hashicorp/google" {
+  version     = "5.45.2"
+  constraints = "~> 5.0"
+  hashes = [
+    "h1:k8taQAdfHrv2F/AiGV5BZBZfI+1uaq8g6O8dWzjx42c=",
+    "zh:0d09c8f20b556305192cdbe0efa6d333ceebba963a8ba91f9f1714b5a20c4b7a",
+    "zh:117143fc91be407874568df416b938a6896f94cb873f26bba279cedab646a804",
+    "zh:16ccf77d18dd2c5ef9c0625f9cf546ebdf3213c0a452f432204c69feed55081e",
+    "zh:3e555cf22a570a4bd247964671f421ed7517970cd9765ceb46f335edc2c6f392",
+    "zh:688bd5b05a75124da7ae6e885b2b92bd29f4261808b2b78bd5f51f525c1052ca",
+    "zh:6db3ef37a05010d82900bfffb3261c59a0c247e0692049cb3eb8c2ef16c9d7bf",
+    "zh:70316fde75f6a15d72749f66d994ccbdde5f5ed4311b6d06b99850f698c9bbf9",
+    "zh:84b8e583771a4f2bd514e519d98ed7fd28dce5efe0634e973170e1cfb5556fb4",
+    "zh:9d4b8ef0a9b6677935c604d94495042e68ff5489932cfd1ec41052e094a279d3",
+    "zh:a2089dd9bd825c107b148dd12d6b286f71aa37dfd4ca9c35157f2dcba7bc19d8",
+    "zh:f03d795c0fd9721e59839255ee7ba7414173017dc530b4ce566daf3802a0d6dd",
+    "zh:f569b65999264a9416862bca5cd2a6177d94ccb0424f3a4ef424428912b9cb3c",
+  ]
+}
+</file>
+
+<file path="terraform/gcp_key.pub">
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCWGp0Nj8TZqPjxFBv2GsWzcsmoxYMtJXFGKJzWE1zF4u/89KsaxOEpmmrrY6re+o0puf3DPnylcAW1uxfwnUr9RiGwi1BVZpjEB4usej0ttG3xIrwOicAiIYuUvtqWu0igP21nqOvAJZOKYDUySjLevBrCiAvCixhAlVS0ItKti8Es3pRtCX1qLDEY4yGXqAVLery1dLNrb8gkcG4hHKR6wvVGc3EEL/t3/K2kgsvUaGUaaNc/KfDzi4pkfopnGh3sUdbTZAbcMgFqRdgP6ngogUJtfildGu3j6AWnYllrQ1zZX69D3QWrOWLDPsYMqyr6uWQQRVISoVvAKR2PRksfW89rBvDwlTlQJgydXXtdQaWUh/mtKVtgONTXdBX99AMakZrcQByN1r6ycxdFX86boEVz96TiS0/t11ZxzSStAD9UEt8EjVfkQd4fjFqaEl4EaGKrNBXc+dWw6YluwQ5YTWUoT8yP1iOcVxYoPK/TPQJzkg1tqTuqZoRRHxZEyZXnPKwMXeF8xJVfsatQzWnlWvvqa1KOc5oo/m3TUdbt1PNf3xAyctLdCUQoybEG2+cKFQIOdF128gu0jgslxkenvHDCfFy7Zc6ZD1P+KFxG/b7cSRZ+XpnFHpDSpq0EWGtVw447UW8TOyC9D6wQwFe3dDmsalkPM88r6wesb0VWKQ== terraform-gcp
+</file>
+
+<file path="terraform/main.tf">
+# 1. LE PARE-FEU (CRITIQUE : Ouvre la porte 3000)
+resource "google_compute_firewall" "allow-rocketchat" {
+  name    = "allow-rocketchat-access"
+  network = "default"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["3000", "22"]
+  }
+  source_ranges = ["0.0.0.0/0"]
+  target_tags   = ["rocketchat"] # Ce tag doit correspondre à celui de la VM ci-dessous
+}
+
+# 2. LA MACHINE VIRTUELLE
+resource "google_compute_instance" "disaster_vm" {
+  name         = var.vm_name
+  machine_type = var.machine_type
+  zone         = var.zone
+  tags         = ["rocketchat", "http-server"] # Le tag qui active le pare-feu
+
+  boot_disk {
+    initialize_params {
+      image = "ubuntu-os-cloud/ubuntu-2204-lts"
+      size  = 30
+    }
+  }
+
+  network_interface {
+    network = "default"
+    access_config {} # IP Publique
+  }
+
+  metadata = {
+    ssh-keys = "${var.ssh_user}:${file(pathexpand(var.ssh_public_key))}"
+  }
+
+  # 3. LE SCRIPT DE DÉMARRAGE (Installe tout tout seul)
+  metadata_startup_script = <<-EOF
+    #!/bin/bash
+    # Installation de Docker
+    apt-get update && apt-get install -y docker.io docker-compose-v2
+    
+    # Création du dossier
+    mkdir -p /home/${var.ssh_user}/hub
+    cd /home/${var.ssh_user}/hub
+
+    # Création du fichier docker-compose.yml (Version MongoDB 5.0 Solide)
+    cat <<EOT > docker-compose.yml
+    version: '3.8'
+    services:
+      mongo:
+        image: mongo:5.0
+        restart: always
+        volumes:
+          - ./data/db:/data/db
+        command: mongod --oplogSize 128 --replSet rs0 --bind_ip_all
+      
+      mongo-init-replica:
+        image: mongo:5.0
+        command: >
+          bash -c "for i in \`seq 1 30\`; do
+            mongosh mongodb://mongo:27017/ --eval 'rs.initiate({ _id: \"rs0\", members: [ { _id: 0, host: \"mongo:27017\" } ] })' &&
+            s=\$\$? && break || s=\$\$?;
+            sleep 5;
+          done; (exit \$\$s)"
+        depends_on:
+          - mongo
+      
+      rocketchat:
+        image: rocket.chat:6.12.0
+        restart: always
+        environment:
+          - PORT=3000
+          - ROOT_URL=http://localhost:3000
+          - MONGO_URL=mongodb://mongo:27017/rocketchat
+          - MONGO_OPLOG_URL=mongodb://mongo:27017/local?replicaSet=rs0
+        ports:
+          - "3000:3000"
+        depends_on:
+          - mongo
+          - mongo-init-replica
+    EOT
+
+    # Lancement
+    docker compose up -d
+  EOF
+}
+</file>
+
+<file path="terraform/outputs.tf">
+output "vm_public_ip" {
+  value = google_compute_instance.disaster_vm.network_interface[0].access_config[0].nat_ip
+}
+</file>
+
+<file path="terraform/provider.tf">
+terraform {
+  required_providers {
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "google" {
+  project = var.project_id
+  region  = var.region
+  zone    = var.zone
+}
+</file>
+
+<file path="terraform/variables.tf">
+variable "project_id" {
+  default = "disaster-relief-hub-484419"  # <--- C'était 484416, j'ai mis 484419 (vérifie ton gcloud list !)
+}
+
+variable "region" {
+  default = "europe-west1"
+}
+
+variable "zone" {
+  default = "europe-west1-b"
+}
+
+variable "vm_name" {
+  default = "disaster-relief-vm"
+}
+
+variable "machine_type" {
+  default = "e2-medium"
+}
+
+variable "ssh_user" {
+  default = "ubuntu" # Utilise "ubuntu" c'est plus standard sur GCP
+}
+
+variable "ssh_public_key" {
+  description = "SSH public key path"
+  default     = "./gcp_key.pub" # <--- Ajouté pour te simplifier la vie
+}
+</file>
+
+<file path=".gitignore">
+.terraform/
+*.tfstate
+*.tfstate.backup
+data/
+mongodb_data/
+.terraform/
+</file>
+
+</files>
