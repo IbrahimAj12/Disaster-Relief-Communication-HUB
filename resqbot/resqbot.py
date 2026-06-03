@@ -106,9 +106,9 @@ def webhook():
     if data.get("bot") is True:
         return jsonify({}), 200
 
-    channel_id   = data.get("channel_id", "unknown")
+    channel_id = data.get("channel_id", "unknown")
     channel_name = data.get("channel_name", channel_id)
-    username     = data.get("user_name", "inconnu")
+    username = data.get("user_name", "inconnu")
     message_text = data.get("text", "").strip()
 
     # Détection d'image dans les attachments
