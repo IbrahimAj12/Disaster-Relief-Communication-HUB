@@ -6,7 +6,7 @@ from collections import deque
 app = Flask(__name__)
 
 # ── Configuration ──────────────────────────────────────────────
-OLLAMA_URL   = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434/api/generate")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "mistral:7b")
 
 SYSTEM_PROMPT = """Tu es ResqBot, l'assistant IA embarqué de ResQNet, un système de communication d'urgence.
@@ -84,9 +84,9 @@ def webhook():
     if not message_text:
         return jsonify({}), 200
 
-    channel_id   = data.get("channel_id", "unknown")
+    channel_id = data.get("channel_id", "unknown")
     channel_name = data.get("channel_name", channel_id)
-    username     = data.get("user_name", "inconnu")
+    username = data.get("user_name", "inconnu")
 
     print(f"[ResqBot] #{channel_name} | {username}: {message_text}")
 
