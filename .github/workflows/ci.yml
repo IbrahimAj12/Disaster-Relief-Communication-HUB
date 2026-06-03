@@ -1,0 +1,75 @@
+name: ResQNet CI
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # ── Job 1 : Lint & sécurité du code Python ──────────────────
+  lint:
+    name: Lint Python (resqbot)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install flake8 bandit
+          pip install -r resqbot/requirements.txt
+
+      - name: Flake8 — style check
+        run: flake8 resqbot/resqbot.py --max-line-length=120 --ignore=E501
+
+      - name: Bandit — security scan
+        run: bandit -r resqbot/resqbot.py -ll
+
+  # ── Job 2 : Build Docker image ───────────────────────────────
+  build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build resqbot image
+        run: docker build -t resqnet-resqbot:ci ./resqbot
+
+      - name: Validate docker-compose syntax
+        run: docker compose config
+
+  # ── Job 3 : Test health endpoint ────────────────────────────
+  test:
+    name: ResqBot Health Check
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        run: pip install flask requests pytest
+
+      - name: Run unit tests
+        run: pytest resqbot/tests/ -v
+        continue-on-error: true   # tests optionnels pour l'instant
+
+      - name: Smoke test — start resqbot with mock ollama
+        run: |
+          pip install -r resqbot/requirements.txt
+          # Lance resqbot en arrière-plan avec un faux OLLAMA_URL
+          OLLAMA_URL=http://127.0.0.1:9999/api/generate python resqbot/resqbot.py &
+          sleep 3
+          # Vérifie que /health répond
+          curl -f http://localhost:5000/health
+          echo "✅ Health check passed"

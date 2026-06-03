@@ -1,88 +1,65 @@
-version: '3.8'
+version: "3.8"
 
 services:
-  # ═══════════════════════════════════════════════════════
-  # MongoDB (Mode Trusted - Base de données pour RocketChat)
-  # ═══════════════════════════════════════════════════════
   mongodb:
-    image: mongo:5.0
-    container_name: disaster-mongodb
+    image: mongo:6.0
+    container_name: resqnet-mongodb
     restart: unless-stopped
-    command: mongod --oplogSize 128 --replSet rs0 --bind_ip_all
+    command: mongod --replSet rs0 --oplogSize 128
     volumes:
-      - ./data/db:/data/db
-      - ./data/configdb:/data/configdb
+      - mongodb_data:/data/db
     networks:
-      - disaster_network
+      - resqnet
 
   mongo-init-replica:
-    image: mongo:5.0
-    command: >
-      bash -c "for i in `seq 1 30`; do
-        mongosh mongodb://mongodb:27017/ --eval 'rs.initiate({ _id: \"rs0\", members: [ { _id: 0, host: \"mongodb:27017\" } ] })' &&
-        s=$$? && break || s=$$?;
-        echo 'Waiting for mongo...';
-        sleep 5;
-      done; (exit $$s)"
+    image: mongo:6.0
+    container_name: resqnet-mongo-init
+    restart: on-failure
     depends_on:
       - mongodb
+    command: >
+      mongosh --host mongodb:27017 --eval
+      "try { rs.status() } catch(e) { rs.initiate({ _id: 'rs0', members: [{ _id: 0, host: 'mongodb:27017' }] }) }"
     networks:
-      - disaster_network
+      - resqnet
 
-  # ═══════════════════════════════════════════════════════
-  # Rocket.Chat (Le Hub de communication)
-  # ═══════════════════════════════════════════════════════
   rocketchat:
-    image: rocket.chat:6.12.0
-    container_name: disaster-rocketchat
+    image: rocket.chat:6.3
+    container_name: resqnet-rocketchat
     restart: unless-stopped
-    ports:
-      - "3000:3000"
+    depends_on:
+      - mongodb
     environment:
-      MONGO_URL: mongodb://mongodb:27017/rocketchat
+      MONGO_URL: mongodb://mongodb:27017/rocketchat?replicaSet=rs0
       MONGO_OPLOG_URL: mongodb://mongodb:27017/local?replicaSet=rs0
       ROOT_URL: http://localhost:3000
       PORT: 3000
-      Accounts_UseDNSDomainCheck: "false"
-      OVERWRITE_SETTING_Accounts_RegistrationForm: "Public"
-    volumes:
-      - rocketchat_uploads:/app/uploads
-    networks:
-      - disaster_network
-    depends_on:
-      - mongodb
-      - mongo-init-replica
-
-  # ═══════════════════════════════════════════════════════
-  # Moteur IA Local (Ollama)
-  # ═══════════════════════════════════════════════════════
-  ai-engine:
-    image: ollama/ollama
-    container_name: disaster-ai-hub
+      DEPLOY_PLATFORM: docker
     ports:
-      - "11434:11434"
-    volumes:
-      - ./data/ollama:/root/.ollama
+      - "3000:3000"
     networks:
-      - disaster_network
-    # Décommentez la section ci-dessous si vous lancez ceci sur votre PC fixe avec la carte AMD (ROCm)
-    # devices:
-    #   - "/dev/kfd:/dev/kfd"
-    #   - "/dev/dri:/dev/dri"
-    #
-    # Décommentez la section ci-dessous si vous lancez ceci sur le PC avec la carte NVIDIA (CUDA)
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
+      - resqnet
+
+  resqbot:
+    build: ./resqbot
+    container_name: resqnet-resqbot
+    restart: unless-stopped
+    environment:
+      # URL Ollama sur la machine hôte (pas dans Docker)
+      OLLAMA_URL: http://172.17.0.1:11434/api/generate
+      OLLAMA_MODEL: phi3:mini
+      ROCKETCHAT_URL: http://rocketchat:3000
+    extra_hosts:
+      - "host-gateway:host-gateway"
+    ports:
+      - "5000:5000"
+    networks:
+      - resqnet
 
 networks:
-  disaster_network:
+  resqnet:
     driver: bridge
 
 volumes:
-  rocketchat_uploads:
+  mongodb_data:
     driver: local
