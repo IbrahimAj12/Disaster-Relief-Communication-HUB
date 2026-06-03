@@ -46,6 +46,7 @@ services:
     restart: unless-stopped
     environment:
       # URL Ollama sur la machine hôte (pas dans Docker)
+      PYTHONUNBUFFERED: "1"
       OLLAMA_URL: http://172.17.0.1:11434/api/generate
       OLLAMA_MODEL: phi3:mini
       ROCKETCHAT_URL: http://rocketchat:3000
