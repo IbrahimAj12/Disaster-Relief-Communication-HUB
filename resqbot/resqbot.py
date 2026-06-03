@@ -130,4 +130,4 @@ if __name__ == "__main__":
     print(f"  Ollama : {OLLAMA_URL}")
     print("  Écoute sur :5000/webhook")
     print("=" * 50)
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=5000) # nosec B104
